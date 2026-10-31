@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Menu QR Sign</title>
+<link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@600&family=Playfair+Display:wght@700&family=Nunito:wght@600&display=swap" rel="stylesheet">
+<style>
+  body { margin:0; background:#fbf4ec; color:#33211a; font-family:"Nunito", system-ui, sans-serif; text-align:center; padding:24px 16px 48px; }
+  .sign { max-width:420px; margin:0 auto; background:#fff; border:3px solid #8b4a2b; border-radius:28px; padding:28px 24px 24px; box-shadow:0 10px 30px rgba(90,52,30,.15); }
+  .sign h1 { font-family:"Playfair Display", serif; margin:0; font-size:2rem; }
+  .sign .tag { font-family:"Dancing Script", cursive; font-size:1.8rem; color:#8b4a2b; margin:2px 0 14px; }
+  #qr { display:inline-block; padding:14px; background:#fff; border:2px dashed #c9a37c; border-radius:18px; }
+  #qr img, #qr canvas { display:block; width:240px; height:240px; }
+  .small { color:#8a6d5b; font-size:.9rem; margin-top:12px; word-break:break-all; }
+  .actions { margin-top:22px; display:flex; gap:10px; justify-content:center; flex-wrap:wrap; }
+  button { font:inherit; font-weight:700; padding:12px 20px; border:none; border-radius:14px; background:#8b4a2b; color:#fff; cursor:pointer; }
+  button.alt { background:#fff; color:#33211a; border:1px solid #ecdac7; }
+  @media print { body { background:#fff; padding:0; } .actions { display:none; } .sign { box-shadow:none; margin-top:20px; } }
+</style>
+</head>
+<body>
+<div class="sign">
+  <!-- Change the name and line below to match the menu page -->
+  <h1>Our Coffee Menu</h1>
+  <p class="tag">Scan to see what's brewing</p>
+  <div id="qr"></div>
+  <p class="small">coffee-menu-test.netlify.app</p>
+</div>
+<div class="actions">
+  <button id="dl">Save QR image</button>
+  <button class="alt" onclick="window.print()">Print sign</button>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script>
+  const URL_TO_ENCODE = "https://coffee-menu-test.netlify.app/";
+  new QRCode(document.getElementById("qr"), {
+    text: URL_TO_ENCODE, width: 600, height: 600,
+    colorDark: "#33211a", colorLight: "#ffffff", correctLevel: QRCode.CorrectLevel.Q
+  });
+  document.getElementById("dl").onclick = () => {
+    const c = document.querySelector("#qr canvas");
+    const a = document.createElement("a");
+    a.download = "menu-qr.png";
+    a.href = c ? c.toDataURL("image/png") : document.querySelector("#qr img").src;
+    a.click();
+  };
+</script>
+</body>
+</html>
