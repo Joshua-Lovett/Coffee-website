@@ -1,8 +1,8 @@
 # Coffee menu and ordering site
 
 A single-page site: customers browse the menu, add drinks to an order, and place it
-(pay at pickup). The owner signs in on the same page to edit the menu and see orders.
-Each new order sends a push notification to the owner's phone.
+(pay at pickup) and tell us when they'll arrive. The owner signs in on the same page to edit the menu,
+see orders, and flip the shop Open or Closed. Each new order sends a push notification to the owner's phone.
 
 - **Hosting:** Netlify (auto-deploys from this repo, no build step)
 - **Menu, orders, owner login:** Supabase (free tier)
@@ -24,4 +24,5 @@ Each new order sends a push notification to the owner's phone.
 4. **Hosting:** in Netlify, import this repo (no build command, publish directory `/`).
 
 ## Day to day
-Owner: open the site, tap "Owner login" at the bottom, then use the Orders and Edit menu tabs.
+Owner: open the site, tap "Owner login" at the bottom. Use "I'm open" / "I'm closed" at the top
+(while closed, customers can see the menu but can't order), then the Orders and Edit menu tabs.

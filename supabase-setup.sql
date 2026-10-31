@@ -37,6 +37,23 @@ select 'Latte', 'Coffee', 'Espresso with steamed milk, served your way.',
   1
 where not exists (select 1 from menu);
 
+-- ========== SHOP OPEN / CLOSED ==========
+-- One row. The owner flips is_open from the site; customers can only read it.
+create table if not exists shop (
+  id int primary key default 1 check (id = 1),
+  is_open boolean not null default false,
+  message text,
+  updated_at timestamptz default now()
+);
+insert into shop (id, is_open) values (1, false) on conflict (id) do nothing;
+alter table shop enable row level security;
+drop policy if exists "public read shop" on shop;
+drop policy if exists "owner updates shop" on shop;
+create policy "public read shop" on shop for select using (true);
+create policy "owner updates shop" on shop for update to authenticated
+  using ((auth.jwt()->>'email') = 'OWNER_EMAIL_HERE')
+  with check ((auth.jwt()->>'email') = 'OWNER_EMAIL_HERE');
+
 -- ========== ORDERS ==========
 create table if not exists orders (
   id bigint generated always as identity primary key,
@@ -48,13 +65,14 @@ create table if not exists orders (
   status text not null default 'new',
   created_at timestamptz not null default now()
 );
+alter table orders add column if not exists eta_minutes int;
 alter table orders enable row level security;
 drop policy if exists "anyone can place orders" on orders;
 drop policy if exists "owner reads orders" on orders;
 drop policy if exists "owner updates orders" on orders;
 drop policy if exists "owner deletes orders" on orders;
 
--- Customers can only ADD orders (never read or change them), with sanity limits.
+-- Customers can only ADD orders (never read or change them), only while the shop is open.
 create policy "anyone can place orders" on orders for insert to anon, authenticated
   with check (
     status = 'new'
@@ -63,6 +81,8 @@ create policy "anyone can place orders" on orders for insert to anon, authentica
     and jsonb_typeof(items) = 'array'
     and jsonb_array_length(items) between 1 and 30
     and total >= 0 and total < 1000
+    and (eta_minutes is null or eta_minutes between 0 and 180)
+    and coalesce((select is_open from shop where id = 1), false)   -- orders only while open
   );
 create policy "owner reads orders" on orders for select to authenticated
   using ((auth.jwt()->>'email') = 'OWNER_EMAIL_HERE');
@@ -76,6 +96,7 @@ create policy "owner deletes orders" on orders for delete to authenticated
 do $$ begin
   begin alter publication supabase_realtime add table menu;   exception when others then null; end;
   begin alter publication supabase_realtime add table orders; exception when others then null; end;
+  begin alter publication supabase_realtime add table shop;   exception when others then null; end;
 end $$;
 
 -- ========== PHONE ALERT (ntfy) ==========
@@ -83,7 +104,10 @@ create extension if not exists pg_net;
 
 create or replace function notify_new_order() returns trigger
 language plpgsql security definer set search_path = public, extensions as $$
-declare lines text;
+declare
+  lines text;
+  tz text := 'America/Chicago';   -- the shop's time zone (change if needed)
+  pick text;
 begin
   select string_agg(
     (it->>'qty') || ' x ' || (it->>'name') ||
@@ -93,12 +117,18 @@ begin
   into lines
   from jsonb_array_elements(new.items) it;
 
+  if new.eta_minutes is not null then
+    pick := to_char((new.created_at + make_interval(mins => new.eta_minutes)) at time zone tz, 'FMHH12:MI AM');
+  end if;
+
   perform net.http_post(
     url := 'https://ntfy.sh',
     body := jsonb_build_object(
       'topic', 'NTFY_TOPIC_HERE',
-      'title', 'New order #' || new.code || ' - ' || new.customer_name,
+      'title', 'New order #' || new.code || ' - ' || new.customer_name
+               || coalesce(' - pickup ~' || pick, ''),
       'message', coalesce(lines, '') || E'\nTotal $' || to_char(new.total, 'FM999990.00')
+                 || coalesce(E'\nPickup in ' || new.eta_minutes || ' min (about ' || pick || ')', '')
                  || coalesce(E'\nNote: ' || new.note, ''),
       'priority', 4,
       'tags', jsonb_build_array('coffee')

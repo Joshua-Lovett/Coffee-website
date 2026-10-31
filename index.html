@@ -96,7 +96,7 @@
   .panel h3 { font-family:"Playfair Display", serif; margin:0 0 8px; }
   label { display:block; font-size:.82rem; font-weight:700; color:var(--muted); margin-top:10px; }
   small.help { display:block; color:var(--muted); font-size:.78rem; margin-top:2px; }
-  input, textarea, button.full { font:inherit; padding:10px 12px; border-radius:12px; border:1px solid var(--line); width:100%; margin-top:4px; background:#fff; color:var(--ink); }
+  input, select, textarea, button.full { font:inherit; padding:10px 12px; border-radius:12px; border:1px solid var(--line); width:100%; margin-top:4px; background:#fff; color:var(--ink); }
   input[type=checkbox] { width:auto; margin:0 8px 0 0; vertical-align:middle; }
   label.inline { display:flex; align-items:center; margin-top:12px; color:var(--ink); }
   textarea { resize:vertical; }
@@ -126,6 +126,22 @@
   .error { color:var(--bad); font-size:.9rem; margin:6px 0 0; }
   .okmsg { color:var(--ok); font-size:.9rem; margin:6px 0 0; }
   .linkbtn { background:none; border:none; color:var(--muted); text-decoration:underline; cursor:pointer; padding:6px 0; width:auto; margin:0; font-size:.88rem; }
+  button.full:disabled { background:#c9b8a8; cursor:not-allowed; }
+
+  /* open / closed */
+  .statusbanner { display:inline-flex; align-items:center; gap:8px; margin:10px 0 0; padding:7px 18px; border-radius:999px; font-size:.95rem; background:#fff; border:1px solid var(--line); }
+  .statusbanner .dot { width:11px; height:11px; border-radius:50%; background:var(--bad); flex:none; }
+  .statusbanner.open .dot { background:var(--ok); box-shadow:0 0 0 4px rgba(63,122,79,.18); }
+  .statusbanner.open strong { color:var(--ok); }
+  .statusbanner.closed strong { color:var(--bad); }
+  .statusbanner .sm { color:var(--muted); }
+  .statusbox { background:#fff; border:1px solid var(--line); border-radius:16px; padding:14px; margin-bottom:14px; }
+  .statusbox .now { font-weight:700; margin-bottom:8px; }
+  .statusbox .row button { margin:0; padding:12px; }
+  .statusbox button.on { background:var(--ok); color:#fff; border-color:var(--ok); }
+  .statusbox button.on.off { background:var(--bad); border-color:var(--bad); }
+  .pk { margin-top:4px; font-weight:700; color:var(--accent2); }
+  .pk span { color:var(--muted); font-weight:400; font-size:.85rem; }
 </style>
 </head>
 <body>
@@ -206,7 +222,8 @@
   </svg>
   <h1 id="shopName">Our Coffee Menu</h1>
   <p class="tag" id="tagline">Freshly made, just for you</p>
-  <span class="pickup">Order ahead &middot; pay when you pick up</span>
+  <span class="pickup">Order ahead &middot; pay when you pick up</span><br>
+  <div id="statusBanner" class="statusbanner hidden" role="status"></div>
 </header>
 
 <main>
@@ -232,6 +249,18 @@
   </section>
 
   <section id="adminPanel" class="panel hidden">
+    <div class="statusbox">
+      <div class="now">Shop status: <span id="adminStatus">...</span></div>
+      <div class="row">
+        <button id="openBtn" class="full secondary" type="button">I'm open</button>
+        <button id="closedBtn" class="full secondary" type="button">I'm closed</button>
+      </div>
+      <label for="statusMsg">Message on the site (optional)</label>
+      <input id="statusMsg" maxlength="80" placeholder="e.g. Back at 2pm, or Sold out of pastries">
+      <button id="saveMsg" class="linkbtn" type="button">Save message</button>
+      <p id="statusError" class="error"></p>
+    </div>
+
     <div class="tabs">
       <button id="tabOrders" class="on" data-tab="orders">Orders<span id="newCount" class="badge hidden">0</span></button>
       <button id="tabMenu" data-tab="menu">Edit menu</button>
@@ -335,6 +364,43 @@ function fmt(p) {
   return isNaN(n) ? esc(p) : plus + "$" + n.toFixed(2);
 }
 
+/* ---------- shop open / closed ---------- */
+let shop = { is_open: true, message: "" };
+let shopKnown = false;                       // false until the status loads (then we don't block anyone)
+const isClosed = () => shopKnown && shop.is_open === false;
+const clock = ms => new Date(ms).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+const ETA_OPTIONS = [10, 15, 20, 30, 45, 60];
+
+function renderShop() {
+  const b = $("statusBanner");
+  if (!shopKnown) b.classList.add("hidden");
+  else {
+    b.className = "statusbanner " + (shop.is_open ? "open" : "closed");
+    b.innerHTML = `<span class="dot"></span><strong>${shop.is_open ? "Open now" : "Closed right now"}</strong>${shop.message ? ` <span class="sm">&middot; ${esc(shop.message)}</span>` : ""}`;
+  }
+  $("adminStatus").textContent = !shopKnown ? "unknown" : shop.is_open ? "OPEN" : "CLOSED";
+  $("openBtn").classList.toggle("on", shopKnown && shop.is_open);
+  $("closedBtn").classList.toggle("on", shopKnown && !shop.is_open);
+  $("closedBtn").classList.toggle("off", true);
+  if (document.activeElement !== $("statusMsg")) $("statusMsg").value = shop.message || "";
+}
+function syncCartClosed() {
+  const btn = $("placeBtn"), m = $("closedMsg");
+  if (btn) btn.disabled = isClosed();
+  if (m) {
+    m.classList.toggle("hidden", !isClosed());
+    m.textContent = "We're closed right now, so orders are paused." + (shop.message ? " " + shop.message : "");
+  }
+}
+async function loadShop() {
+  const { data, error } = await sb.from("shop").select("*").eq("id", 1).maybeSingle();
+  if (error || !data) { shopKnown = false; if (error) console.error(error); }
+  else { shop = data; shopKnown = true; }
+  renderShop();
+  if (all.length) renderMenu();
+  syncCartClosed();
+}
+
 /* ---------- menu ---------- */
 let all = [];
 const sel = {};          // per-item selection: { v: variantIndex, o: optionIndex|null }
@@ -357,6 +423,7 @@ function cardHTML(i) {
   const s = selFor(i);
   const vs = i.variants || [], os = i.options || [];
   const sold = i.available === false;
+  const closed = isClosed();
   const unit = unitPrice(i, s);
   return `
   <article class="card ${sold ? "sold" : ""}" data-id="${i.id}">
@@ -368,7 +435,7 @@ function cardHTML(i) {
       `<button type="button" class="chip ${idx === s.o ? "on" : ""}" data-act="o" data-i="${idx}" aria-pressed="${idx === s.o}"><span>${esc(o.name)}</span>${o.price ? `<small>${fmt(o.price)}</small>` : ""}</button>`).join("")}</div>` : ""}
     <div class="addrow">
       <span class="unit">${unit ? money(unit) : ""}</span>
-      <button type="button" class="add" data-act="add" ${sold ? "disabled" : ""}>${sold ? "Sold out" : "Add to order"}</button>
+      <button type="button" class="add" data-act="add" ${sold || closed ? "disabled" : ""}>${sold ? "Sold out" : closed ? "Closed" : "Add to order"}</button>
     </div>
   </article>`;
 }
@@ -460,9 +527,13 @@ function renderCart(msg) {
     <div class="totalrow"><span>Total</span><span>${money(cartTotal())}</span></div>
     <label for="cName">Your name</label>
     <input id="cName" maxlength="60" placeholder="So we know whose order it is" autocomplete="given-name" value="${esc(store.get("custName") || "")}">
+    <label for="cEta">I'll pick it up in</label>
+    <select id="cEta">${ETA_OPTIONS.map(m => `<option value="${m}" ${m === etaPref() ? "selected" : ""}>${m} minutes</option>`).join("")}</select>
+    <small class="help" id="etaHint">${etaHint(etaPref())}</small>
     <label for="cNote">Notes (optional)</label>
     <textarea id="cNote" rows="2" maxlength="300" placeholder="Anything we should know?"></textarea>
-    <button id="placeBtn" class="full" style="margin-top:14px">Place order</button>
+    <p id="closedMsg" class="error ${isClosed() ? "" : "hidden"}">We're closed right now, so orders are paused.${shop.message ? " " + esc(shop.message) : ""}</p>
+    <button id="placeBtn" class="full" style="margin-top:14px" ${isClosed() ? "disabled" : ""}>Place order</button>
     <button id="closeBtn" class="full secondary" style="margin-top:8px">Keep browsing</button>
     <p id="orderError" class="error">${esc(msg || "")}</p>`;
 }
@@ -483,6 +554,10 @@ $("sheet").onclick = e => {
   if (e.target.id === "placeBtn") placeOrder();
 };
 
+function etaPref() { const n = parseInt(store.get("eta"), 10); return ETA_OPTIONS.includes(n) ? n : 15; }
+function etaHint(m) { return `We'll have it fresh around ${clock(Date.now() + m * 60000)}.`; }
+$("sheet").onchange = e => { if (e.target.id === "cEta") $("etaHint").textContent = etaHint(parseInt(e.target.value, 10)); };
+
 function makeCode() {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   let c = "";
@@ -497,6 +572,9 @@ async function placeOrder() {
   const note = $("cNote").value.trim();
   const err = m => { $("orderError").textContent = m; };
   if (!cart.length) return;
+  if (isClosed()) { syncCartClosed(); return; }
+  const eta = parseInt($("cEta").value, 10);
+  if (!ETA_OPTIONS.includes(eta)) { err("Please choose when you'll pick it up."); return; }
   if (!name) { err("Please enter your name."); $("cName").focus(); return; }
   if (Date.now() - (parseInt(store.get("lastOrderAt"), 10) || 0) < 15000) { err("One moment, then try again."); return; }
 
@@ -504,13 +582,16 @@ async function placeOrder() {
   btn.disabled = true; btn.textContent = "Sending...";
   const code = makeCode();
   const items = cart.map(l => ({ name: l.name, variant: l.variant || null, option: l.option || null, qty: l.qty, unit: l.unit }));
-  const { error } = await sb.from("orders").insert({ code, customer_name: name, note: note || null, items, total: cartTotal() });
+  const { error } = await sb.from("orders").insert({ code, customer_name: name, note: note || null, items, total: cartTotal(), eta_minutes: eta });
   if (error) {
     console.error(error);
     btn.disabled = false; btn.textContent = "Place order";
-    err("Sorry, that didn't go through. Please try again or order at the counter.");
+    if (error.code === "42501") { loadShop(); err("Sorry, we just closed. Please try again when we reopen."); }
+    else err("Sorry, that didn't go through. Please try again or order at the counter.");
     return;
   }
+  const readyAt = Date.now() + eta * 60000;
+  store.set("eta", String(eta));
   store.set("custName", name);
   store.set("lastOrderAt", String(Date.now()));
   const total = cartTotal();
@@ -520,7 +601,7 @@ async function placeOrder() {
       <h3>Thank you, ${esc(name)}!</h3>
       <p>Your order is in. Your order number is</p>
       <div class="code">${code}</div>
-      <p>Total ${money(total)}. Pay when you pick it up.</p>
+      <p>We'll have it ready around <strong>${clock(readyAt)}</strong>.<br>Total ${money(total)}. Pay when you pick it up.</p>
       <button id="doneBtn" class="full" style="margin-top:10px">Done</button>
     </div>`;
 }
@@ -614,10 +695,13 @@ function renderOrders() {
   const fresh = orders.filter(o => o.status === "new").length;
   $("newCount").textContent = fresh;
   $("newCount").classList.toggle("hidden", fresh === 0);
-  const list = orders.filter(o => showDone || o.status !== "done");
+  const pickMs = o => new Date(o.created_at).getTime() + (o.eta_minutes || 0) * 60000;
+  const list = orders.filter(o => showDone || o.status !== "done")
+    .sort((a, b) => ((a.status === "done") - (b.status === "done")) || (a.status === "done" ? b.created_at.localeCompare(a.created_at) : pickMs(a) - pickMs(b)));
   $("ordersList").innerHTML = list.length ? list.map(o => `
     <div class="order ${esc(o.status)}" data-id="${o.id}">
       <div class="head"><span>#${esc(o.code)} &middot; ${esc(o.customer_name)}</span><span class="when">${esc(timeText(o.created_at))}</span></div>
+      ${o.eta_minutes != null ? `<div class="pk">Pickup about ${esc(clock(pickMs(o)))} <span>(${esc(o.eta_minutes)} min after ordering)</span></div>` : ""}
       <ul>${(o.items || []).map(it => `<li>${esc(it.qty)} &times; ${esc(it.name)}${[it.variant, it.option].filter(Boolean).length ? " (" + esc([it.variant, it.option].filter(Boolean).join(", ")) + ")" : ""}</li>`).join("")}</ul>
       ${o.note ? `<div class="when">Note: ${esc(o.note)}</div>` : ""}
       <div class="head" style="margin-top:6px"><span>Total ${money(num(o.total))}</span><span class="when">${esc(o.status)}</span></div>
@@ -743,7 +827,20 @@ $("adminList").onclick = async e => {
   if (del && confirm("Delete this item?")) { await sb.from("menu").delete().eq("id", del); loadMenu(); }
 };
 
+/* ---------- owner: open / closed ---------- */
+async function setShop(open) {
+  $("statusError").textContent = "";
+  const { error } = await sb.from("shop").update({ is_open: open, message: $("statusMsg").value.trim(), updated_at: new Date().toISOString() }).eq("id", 1);
+  if (error) { console.error(error); $("statusError").textContent = "Couldn't update. Are you signed in?"; return; }
+  loadShop();
+}
+$("openBtn").onclick = () => setShop(true);
+$("closedBtn").onclick = () => setShop(false);
+$("saveMsg").onclick = () => setShop(shopKnown ? shop.is_open : true);
+
 /* ---------- go ---------- */
+loadShop();
+sb.channel("shop-live").on("postgres_changes", { event: "*", schema: "public", table: "shop" }, loadShop).subscribe();
 loadMenu();
 sb.channel("menu-live").on("postgres_changes", { event: "*", schema: "public", table: "menu" }, loadMenu).subscribe();
 </script>
