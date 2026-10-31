@@ -369,7 +369,7 @@ let shop = { is_open: true, message: "" };
 let shopKnown = false;                       // false until the status loads (then we don't block anyone)
 const isClosed = () => shopKnown && shop.is_open === false;
 const clock = ms => new Date(ms).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
-const ETA_OPTIONS = [10, 15, 20, 30, 45, 60];
+const ETA_OPTIONS = [5, 10, 15, 20, 30, 45, 60];
 
 function renderShop() {
   const b = $("statusBanner");
