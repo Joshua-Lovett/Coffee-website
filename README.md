@@ -1,4 +1,4 @@
-# Coffee menu and ordering site
+# Ohayo Coffee Co. menu and ordering site
 
 A single-page site: customers browse the menu, add drinks to an order, and place it
 (pay at pickup) and tell us when they'll arrive. The owner signs in on the same page to edit the menu,

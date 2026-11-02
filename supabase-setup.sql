@@ -1,4 +1,4 @@
--- Coffee site database setup. Paste into Supabase > SQL Editor and run ONCE.
+-- Ohayo Coffee Co. database setup. Paste into Supabase > SQL Editor and run ONCE.
 -- Safe to re-run: it only adds what's missing and refreshes the rules.
 --
 -- Before running, replace these two placeholders:

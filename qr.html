@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
-<title>Menu QR Sign</title>
+<title>Ohayo Coffee Co. QR Sign</title>
 <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@600&family=Playfair+Display:wght@700&family=Nunito:wght@600&display=swap" rel="stylesheet">
 <style>
   body { margin:0; background:#fbf4ec; color:#33211a; font-family:"Nunito", system-ui, sans-serif; text-align:center; padding:24px 16px 48px; }
@@ -24,10 +24,10 @@
 <body>
 <div class="sign">
   <!-- Change the name and line below to match the menu page -->
-  <h1>Our Coffee Menu</h1>
+  <h1>Ohayo Coffee Co.</h1>
   <p class="tag">Scan to see what's brewing</p>
   <div id="qr"></div>
-  <p class="small">coffee-menu-test.netlify.app</p>
+  <p class="small">ohayo-coffee-co.netlify.app</p>
 </div>
 <div class="actions">
   <button id="dl">Save QR image</button>
@@ -36,7 +36,7 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script>
-  const URL_TO_ENCODE = "https://coffee-menu-test.netlify.app/";
+  const URL_TO_ENCODE = "https://ohayo-coffee-co.netlify.app/";
   new QRCode(document.getElementById("qr"), {
     text: URL_TO_ENCODE, width: 600, height: 600,
     colorDark: "#33211a", colorLight: "#ffffff", correctLevel: QRCode.CorrectLevel.Q
