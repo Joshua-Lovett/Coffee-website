@@ -12,6 +12,7 @@ see orders, and flip the shop Open or Closed. Each new order sends a push notifi
 - `index.html` the whole site (change `SHOP_NAME` and `TAGLINE` near the top of the script)
 - `supabase-setup.sql` database tables, security rules, and the alert trigger
 - `qr.html` printable QR sign for the site address
+- `menu-qr.png` ready-made QR code image for https://ohayo-coffee-co.netlify.app/
 
 ## One-time setup
 1. **Database:** in Supabase > SQL Editor, run `supabase-setup.sql` after replacing
